@@ -2,9 +2,20 @@
 <html lang="tr">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    >
     <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Barkod Okuyucu">
+    <meta name="application-name" content="Barkod Okuyucu">
     <title>Barkod Okuyucu</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+    <link rel="apple-touch-icon" href="./icons/icon-192.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -15,15 +26,6 @@
   </head>
   <body>
     <main class="app-shell">
-      <section class="hero">
-        <p class="eyebrow">Mobil Web Barkod Tarayıcı</p>
-        <h1>QR ve barkodları kamerayla anında okutun.</h1>
-        <p class="hero-copy">
-          Tarayıcı içinde çalışır. QR, EAN, UPC, Code 128, Code 39, ITF, PDF417, Aztec ve
-          desteklenen diğer formatları okumayı dener.
-        </p>
-      </section>
-
       <section class="scanner-card">
         <div class="scanner-header">
           <div>

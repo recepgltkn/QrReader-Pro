@@ -23,6 +23,9 @@ let currentCameraId = null;
 let activeTrack = null;
 let torchEnabled = false;
 let isRunning = false;
+let lastTouchEnd = 0;
+let audioContext = null;
+let lastBeepAt = 0;
 
 renderHistory();
 
@@ -33,6 +36,9 @@ elements.copyButton.addEventListener("click", copyResult);
 elements.clearHistoryButton.addEventListener("click", clearHistory);
 elements.fileInput.addEventListener("change", scanSelectedFile);
 elements.torchButton.addEventListener("click", toggleTorch);
+
+registerServiceWorker();
+installMobileGuards();
 
 async function startScanner() {
   if (!window.Html5Qrcode) {
@@ -134,6 +140,7 @@ function onScanSuccess(decodedText, decodedResult) {
   }
 
   currentText = decodedText;
+  playBeep();
   setResult({
     text: decodedText,
     format: normalizeFormat(decodedResult?.result?.format?.formatName),
@@ -163,6 +170,7 @@ async function scanSelectedFile(event) {
     await fileScanner.clear();
 
     currentText = result;
+    playBeep();
     setResult({
       text: result,
       format: "Otomatik tespit",
@@ -316,6 +324,96 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function playBeep() {
+  const now = Date.now();
+  if (now - lastBeepAt < 350) {
+    return;
+  }
+
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+
+  try {
+    audioContext = audioContext || new AudioContextClass();
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    const startAt = audioContext.currentTime;
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(1046.5, startAt);
+    gainNode.gain.setValueAtTime(0.0001, startAt);
+    gainNode.gain.exponentialRampToValueAtTime(0.18, startAt + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.12);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.start(startAt);
+    oscillator.stop(startAt + 0.12);
+    lastBeepAt = now;
+  } catch (error) {
+    console.error("Beep playback failed:", error);
+  }
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch((error) => {
+      console.error("Service worker registration failed:", error);
+    });
+  });
+}
+
+function installMobileGuards() {
+  document.addEventListener(
+    "touchmove",
+    (event) => {
+      if (event.touches.length > 1) {
+        event.preventDefault();
+      }
+    },
+    { passive: false }
+  );
+
+  document.addEventListener(
+    "gesturestart",
+    (event) => {
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+
+  document.addEventListener(
+    "dblclick",
+    (event) => {
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+
+  document.addEventListener(
+    "touchend",
+    (event) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+      }
+      lastTouchEnd = now;
+    },
+    { passive: false }
+  );
 }
 
 window.addEventListener("beforeunload", () => {
