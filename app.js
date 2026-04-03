@@ -1,0 +1,325 @@
+const elements = {
+  startButton: document.getElementById("startButton"),
+  stopButton: document.getElementById("stopButton"),
+  scanFileButton: document.getElementById("scanFileButton"),
+  torchButton: document.getElementById("torchButton"),
+  copyButton: document.getElementById("copyButton"),
+  clearHistoryButton: document.getElementById("clearHistoryButton"),
+  fileInput: document.getElementById("fileInput"),
+  resultText: document.getElementById("resultText"),
+  formatText: document.getElementById("formatText"),
+  sourceText: document.getElementById("sourceText"),
+  statusText: document.getElementById("statusText"),
+  cameraState: document.getElementById("cameraState"),
+  historyList: document.getElementById("historyList"),
+};
+
+const historyKey = "qrreaderpro-history";
+const scanHistory = readHistory();
+
+let scanner = null;
+let currentText = "";
+let currentCameraId = null;
+let activeTrack = null;
+let torchEnabled = false;
+let isRunning = false;
+
+renderHistory();
+
+elements.startButton.addEventListener("click", startScanner);
+elements.stopButton.addEventListener("click", stopScanner);
+elements.scanFileButton.addEventListener("click", () => elements.fileInput.click());
+elements.copyButton.addEventListener("click", copyResult);
+elements.clearHistoryButton.addEventListener("click", clearHistory);
+elements.fileInput.addEventListener("change", scanSelectedFile);
+elements.torchButton.addEventListener("click", toggleTorch);
+
+async function startScanner() {
+  if (!window.Html5Qrcode) {
+    updateStatus("Tarayıcı kütüphanesi yüklenemedi.", false);
+    return;
+  }
+
+  try {
+    elements.startButton.disabled = true;
+    updateStatus("Kamera hazırlanıyor...", false);
+
+    const cameras = await Html5Qrcode.getCameras();
+    if (!cameras.length) {
+      throw new Error("Kullanılabilir kamera bulunamadı.");
+    }
+
+    const preferredCamera = pickRearCamera(cameras);
+    currentCameraId = preferredCamera.id;
+
+    if (!scanner) {
+      scanner = new Html5Qrcode("reader", {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.AZTEC,
+          Html5QrcodeSupportedFormats.CODABAR,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.DATA_MATRIX,
+          Html5QrcodeSupportedFormats.MAXICODE,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.PDF_417,
+          Html5QrcodeSupportedFormats.RSS_14,
+          Html5QrcodeSupportedFormats.RSS_EXPANDED,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.UPC_EAN_EXTENSION,
+        ],
+        verbose: false,
+      });
+    }
+
+    await scanner.start(
+      { deviceId: { exact: currentCameraId } },
+      {
+        fps: 12,
+        qrbox: createQrBox,
+        aspectRatio: 1.7777778,
+        rememberLastUsedCamera: true,
+        videoConstraints: {
+          facingMode: "environment",
+        },
+      },
+      onScanSuccess,
+      () => {}
+    );
+
+    isRunning = true;
+    bindActiveTrack();
+    elements.stopButton.disabled = false;
+    elements.torchButton.disabled = !canToggleTorch();
+    updateStatus("Kamera aktif. Barkodu çerçeveye hizalayın.", true);
+  } catch (error) {
+    console.error(error);
+    updateStatus(getReadableError(error), false);
+    elements.startButton.disabled = false;
+    elements.stopButton.disabled = true;
+    elements.torchButton.disabled = true;
+  }
+}
+
+async function stopScanner() {
+  if (!scanner || !isRunning) {
+    return;
+  }
+
+  try {
+    await scanner.stop();
+    await scanner.clear();
+  } catch (error) {
+    console.error(error);
+  } finally {
+    isRunning = false;
+    activeTrack = null;
+    torchEnabled = false;
+    elements.startButton.disabled = false;
+    elements.stopButton.disabled = true;
+    elements.torchButton.disabled = true;
+    elements.torchButton.textContent = "Flaş";
+    updateStatus("Kamera durduruldu.", false);
+  }
+}
+
+function onScanSuccess(decodedText, decodedResult) {
+  if (decodedText === currentText) {
+    return;
+  }
+
+  currentText = decodedText;
+  setResult({
+    text: decodedText,
+    format: normalizeFormat(decodedResult?.result?.format?.formatName),
+    source: "Canlı kamera",
+  });
+}
+
+async function scanSelectedFile(event) {
+  const [file] = event.target.files || [];
+  if (!file) {
+    return;
+  }
+
+  if (!window.Html5Qrcode) {
+    updateStatus("Tarayıcı kütüphanesi yüklenemedi.", false);
+    return;
+  }
+
+  try {
+    if (isRunning) {
+      await stopScanner();
+    }
+
+    updateStatus("Resim analiz ediliyor...", false);
+    const fileScanner = new Html5Qrcode("reader");
+    const result = await fileScanner.scanFile(file, true);
+    await fileScanner.clear();
+
+    currentText = result;
+    setResult({
+      text: result,
+      format: "Otomatik tespit",
+      source: "Yüklenen görsel",
+    });
+    updateStatus("Görselden barkod okundu.", true);
+  } catch (error) {
+    console.error(error);
+    updateStatus("Seçilen görselden barkod okunamadı.", false);
+  } finally {
+    elements.fileInput.value = "";
+  }
+}
+
+async function copyResult() {
+  if (!currentText) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(currentText);
+    updateStatus("Sonuç panoya kopyalandı.", true);
+  } catch (error) {
+    console.error(error);
+    updateStatus("Panoya kopyalama başarısız oldu.", false);
+  }
+}
+
+async function toggleTorch() {
+  if (!activeTrack) {
+    return;
+  }
+
+  try {
+    torchEnabled = !torchEnabled;
+    await activeTrack.applyConstraints({
+      advanced: [{ torch: torchEnabled }],
+    });
+    elements.torchButton.textContent = torchEnabled ? "Flaş Kapat" : "Flaş";
+  } catch (error) {
+    console.error(error);
+    torchEnabled = false;
+    elements.torchButton.textContent = "Flaş";
+    updateStatus("Bu cihazda flaş kontrolü desteklenmiyor.", false);
+  }
+}
+
+function setResult({ text, format, source }) {
+  elements.resultText.textContent = text;
+  elements.formatText.textContent = format || "-";
+  elements.sourceText.textContent = source || "-";
+  elements.copyButton.disabled = false;
+
+  const item = {
+    text,
+    format: format || "-",
+    source: source || "-",
+    timestamp: new Date().toLocaleString("tr-TR"),
+  };
+
+  scanHistory.unshift(item);
+  scanHistory.splice(10);
+  localStorage.setItem(historyKey, JSON.stringify(scanHistory));
+  renderHistory();
+}
+
+function renderHistory() {
+  if (!scanHistory.length) {
+    elements.historyList.innerHTML = '<li class="history-empty">Henüz tarama yapılmadı.</li>';
+    return;
+  }
+
+  elements.historyList.innerHTML = scanHistory
+    .map(
+      (item) => `
+        <li class="history-item">
+          <div class="history-row">
+            <strong>${escapeHtml(item.format)}</strong>
+            <span class="history-meta">${escapeHtml(item.timestamp)}</span>
+          </div>
+          <p class="history-value">${escapeHtml(item.text)}</p>
+        </li>
+      `
+    )
+    .join("");
+}
+
+function clearHistory() {
+  scanHistory.length = 0;
+  localStorage.removeItem(historyKey);
+  renderHistory();
+}
+
+function updateStatus(message, active) {
+  elements.statusText.textContent = message;
+  elements.cameraState.textContent = active ? "Aktif" : "Pasif";
+  elements.cameraState.classList.toggle("active", active);
+}
+
+function readHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(historyKey) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function pickRearCamera(cameras) {
+  return (
+    cameras.find((camera) => /back|rear|environment|arka/i.test(camera.label)) ||
+    cameras[0]
+  );
+}
+
+function createQrBox(viewfinderWidth, viewfinderHeight) {
+  const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72);
+  return { width: edge, height: edge };
+}
+
+function normalizeFormat(format) {
+  return format?.replaceAll("_", " ") || "Bilinmiyor";
+}
+
+function bindActiveTrack() {
+  const video = document.querySelector("#reader video");
+  activeTrack = video?.srcObject?.getVideoTracks?.()[0] || null;
+}
+
+function canToggleTorch() {
+  const capabilities = activeTrack?.getCapabilities?.();
+  return Boolean(capabilities?.torch);
+}
+
+function getReadableError(error) {
+  const message = String(error?.message || error || "");
+  if (/permission|denied|allowed/i.test(message)) {
+    return "Kamera izni verilmedi. Tarayıcı izinlerini kontrol edin.";
+  }
+
+  if (/secure|https/i.test(message)) {
+    return "Kamera için HTTPS veya localhost gerekir.";
+  }
+
+  return "Kamera başlatılamadı. Başka bir uygulama kamerayı kullanıyor olabilir.";
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+window.addEventListener("beforeunload", () => {
+  if (scanner && isRunning) {
+    scanner.stop().catch(() => {});
+  }
+});
