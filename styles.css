@@ -108,10 +108,13 @@ p {
 .reader-frame {
   overflow: hidden;
   min-height: 230px;
+  height: 230px;
+  max-height: 230px;
   width: 100%;
   border-radius: 20px;
   background: linear-gradient(180deg, rgba(2, 6, 23, 0.9), rgba(15, 23, 42, 0.9));
   border: 1px solid rgba(148, 163, 184, 0.12);
+  position: relative;
 }
 
 .reader-frame > div,
@@ -119,6 +122,10 @@ p {
 .reader-frame canvas {
   width: 100% !important;
   height: 100% !important;
+}
+
+.reader-frame > div {
+  overflow: hidden !important;
 }
 
 .reader-frame video {
@@ -241,6 +248,8 @@ button:disabled {
 
   .reader-frame {
     min-height: 210px;
+    height: 210px;
+    max-height: 210px;
   }
 
   .scanner-header,
@@ -263,5 +272,7 @@ button:disabled {
 
   .reader-frame {
     min-height: 185px;
+    height: 185px;
+    max-height: 185px;
   }
 }

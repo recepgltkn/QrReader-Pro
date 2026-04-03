@@ -86,12 +86,13 @@ async function startScanner() {
     await scanner.start(
       { deviceId: { exact: currentCameraId } },
       {
-        fps: 12,
-        qrbox: createQrBox,
-        aspectRatio: 1.7777778,
+        fps: 18,
+        qrbox: createScanBox,
         rememberLastUsedCamera: true,
         videoConstraints: {
           facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
       },
       onScanSuccess,
@@ -285,9 +286,10 @@ function pickRearCamera(cameras) {
   );
 }
 
-function createQrBox(viewfinderWidth, viewfinderHeight) {
-  const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72);
-  return { width: edge, height: edge };
+function createScanBox(viewfinderWidth, viewfinderHeight) {
+  const width = Math.floor(Math.min(viewfinderWidth * 0.9, 520));
+  const height = Math.floor(Math.max(90, Math.min(viewfinderHeight * 0.38, 160)));
+  return { width, height };
 }
 
 function normalizeFormat(format) {
