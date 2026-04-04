@@ -62,8 +62,8 @@ elements.copyButton.addEventListener("click", copyResult);
 elements.clearHistoryButton.addEventListener("click", clearHistory);
 elements.fileInput.addEventListener("change", scanSelectedFile);
 elements.torchButton.addEventListener("click", toggleTorch);
-elements.closeModalButton.addEventListener("click", closeResultModal);
-elements.modalBackdrop.addEventListener("click", closeResultModal);
+elements.closeModalButton?.addEventListener("click", closeResultModal);
+elements.modalBackdrop?.addEventListener("click", closeResultModal);
 document.addEventListener("keydown", handleGlobalKeydown);
 
 registerServiceWorker();
@@ -442,6 +442,11 @@ function installMobileGuards() {
 }
 
 function openResultModal({ text, format, source, scannedAt }) {
+  if (!elements.resultModal) {
+    alert(`Barkod okundu:\n\n${text || "-"}`);
+    return;
+  }
+
   const decodedFields = buildDecodedFields(text, format);
   elements.modalResultText.textContent = text || "-";
   elements.modalFormatText.textContent = format || "-";
@@ -461,11 +466,18 @@ function openResultModal({ text, format, source, scannedAt }) {
 
   elements.resultModal.hidden = false;
   elements.resultModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function closeResultModal() {
+  if (!elements.resultModal) {
+    return;
+  }
+
   elements.resultModal.hidden = true;
   elements.resultModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
   scheduleLiveResume();
 }
 

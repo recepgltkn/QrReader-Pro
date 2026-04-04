@@ -37,6 +37,10 @@ body {
     linear-gradient(180deg, #07101d 0%, #0b1526 100%);
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 body::before {
   content: "";
   position: fixed;
@@ -250,7 +254,11 @@ button:disabled {
 .modal {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
 }
 
 .modal-backdrop {
@@ -262,10 +270,9 @@ button:disabled {
 
 .modal-panel {
   position: relative;
-  width: min(680px, calc(100vw - 24px));
+  width: min(680px, 100%);
   max-height: calc(100vh - 24px);
   overflow: auto;
-  margin: 12px auto;
   padding: 18px;
   border-radius: 24px;
   border: 1px solid rgba(148, 163, 184, 0.18);
@@ -338,9 +345,8 @@ button:disabled {
   }
 
   .modal-panel {
-    width: min(100vw - 12px, 680px);
+    width: min(100%, 680px);
     max-height: calc(100vh - 12px);
-    margin: 6px auto;
   }
 
   h2 {
