@@ -79,24 +79,25 @@ async function startScanner() {
     const preferredCamera = pickRearCamera(cameras);
     currentCameraId = preferredCamera.id;
 
-    if (!scanner) {
-      scanner = new Html5Qrcode("reader", {
-        formatsToSupport: fastFormats,
-        verbose: false,
-      });
-    }
+    scanner = new Html5Qrcode("reader", {
+      formatsToSupport: fastFormats,
+      verbose: false,
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true,
+      },
+    });
 
     await scanner.start(
-      { deviceId: { exact: currentCameraId } },
+      currentCameraId,
       {
-        fps: 20,
+        fps: 12,
+        qrbox: createScanBox,
         rememberLastUsedCamera: true,
         videoConstraints: {
           facingMode: "environment",
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
-        disableFlip: true,
       },
       onScanSuccess,
       () => {}
@@ -129,6 +130,8 @@ async function stopScanner() {
     isRunning = false;
     activeTrack = null;
     torchEnabled = false;
+    scanner = null;
+    currentText = "";
     elements.torchButton.disabled = true;
     elements.torchButtonLabel.textContent = "Flaş";
     setCameraButtonState(false);
@@ -289,10 +292,10 @@ function pickRearCamera(cameras) {
 }
 
 function createScanBox(viewfinderWidth, viewfinderHeight) {
-  const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72);
+  const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.82);
   return {
-    width: Math.max(220, edge),
-    height: Math.max(220, edge),
+    width: Math.max(240, edge),
+    height: Math.max(240, edge),
   };
 }
 
