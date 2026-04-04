@@ -6,6 +6,8 @@ const elements = {
   torchButtonLabel: document.getElementById("torchButtonLabel"),
   clearHistoryButton: document.getElementById("clearHistoryButton"),
   fileInput: document.getElementById("fileInput"),
+  reader: document.getElementById("reader"),
+  previewVideo: document.getElementById("previewVideo"),
   statusText: document.getElementById("statusText"),
   cameraState: document.getElementById("cameraState"),
   historyList: document.getElementById("historyList"),
@@ -14,24 +16,23 @@ const elements = {
 const historyKey = "qrreaderpro-history";
 const scanHistory = readHistory();
 const fastFormats = [
-  Html5QrcodeSupportedFormats.CODE_128,
-  Html5QrcodeSupportedFormats.CODE_39,
-  Html5QrcodeSupportedFormats.CODE_93,
-  Html5QrcodeSupportedFormats.CODABAR,
-  Html5QrcodeSupportedFormats.ITF,
-  Html5QrcodeSupportedFormats.EAN_13,
-  Html5QrcodeSupportedFormats.EAN_8,
-  Html5QrcodeSupportedFormats.UPC_A,
-  Html5QrcodeSupportedFormats.UPC_E,
-  Html5QrcodeSupportedFormats.UPC_EAN_EXTENSION,
-  Html5QrcodeSupportedFormats.QR_CODE,
-  Html5QrcodeSupportedFormats.DATA_MATRIX,
-  Html5QrcodeSupportedFormats.PDF_417,
+  "code_128",
+  "code_39",
+  "code_93",
+  "codabar",
+  "itf",
+  "ean_13",
+  "ean_8",
+  "upc_a",
+  "upc_e",
+  "qr_code",
+  "data_matrix",
+  "pdf417",
 ];
 
-let scanner = null;
+let scannerControls = null;
+let fallbackScanner = null;
 let currentText = "";
-let currentCameraId = null;
 let activeTrack = null;
 let torchEnabled = false;
 let isRunning = false;
@@ -67,38 +68,38 @@ async function startScanner() {
     return;
   }
 
+  if (!window.ZXingBrowser) {
+    updateStatus("Canlı tarama motoru yüklenemedi.", false);
+    return;
+  }
+
   try {
     elements.startButton.disabled = true;
     updateStatus("Kamera hazırlanıyor...", false);
 
-    const cameras = await Html5Qrcode.getCameras();
-    if (!cameras.length) {
-      throw new Error("Kullanılabilir kamera bulunamadı.");
-    }
-
-    const preferredCamera = pickRearCamera(cameras);
-    currentCameraId = preferredCamera.id;
-
-    scanner = new Html5Qrcode("reader", {
-      formatsToSupport: fastFormats,
-      verbose: false,
-    });
-
-    await scanner.start(
-      { deviceId: { exact: currentCameraId } },
+    const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
+    scannerControls = await codeReader.decodeFromConstraints(
       {
-        fps: 12,
-        qrbox: createScanBox,
-        rememberLastUsedCamera: true,
-        videoConstraints: {
-          facingMode: "environment",
+        video: {
+          facingMode: { ideal: "environment" },
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
-        disableFlip: false,
       },
-      onScanSuccess,
-      () => {}
+      elements.previewVideo,
+      (result, error) => {
+        if (result?.text) {
+          onScanSuccess(result.text, {
+            result: {
+              format: {
+                formatName: result.getBarcodeFormat?.().toString?.() || "Bilinmiyor",
+              },
+            },
+          });
+        } else if (error && !String(error?.name || "").includes("NotFound")) {
+          console.error("Decode error:", error);
+        }
+      }
     );
 
     isRunning = true;
@@ -110,26 +111,26 @@ async function startScanner() {
     console.error(error);
     updateStatus(getReadableError(error), false);
     elements.torchButton.disabled = true;
-    scanner = null;
+    scannerControls = null;
     setCameraButtonState(false);
   }
 }
 
 async function stopScanner() {
-  if (!scanner || !isRunning) {
+  if (!scannerControls || !isRunning) {
     return;
   }
 
   try {
-    await scanner.stop();
-    await scanner.clear();
+    scannerControls.stop();
   } catch (error) {
     console.error(error);
   } finally {
     isRunning = false;
     activeTrack = null;
     torchEnabled = false;
-    scanner = null;
+    scannerControls = null;
+    fallbackScanner = null;
     currentText = "";
     elements.torchButton.disabled = true;
     elements.torchButtonLabel.textContent = "Flaş";
@@ -283,13 +284,6 @@ function readHistory() {
   }
 }
 
-function pickRearCamera(cameras) {
-  return (
-    cameras.find((camera) => /back|rear|environment|arka/i.test(camera.label)) ||
-    cameras[0]
-  );
-}
-
 function createScanBox(viewfinderWidth, viewfinderHeight) {
   const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.82);
   return {
@@ -303,7 +297,7 @@ function normalizeFormat(format) {
 }
 
 function bindActiveTrack() {
-  const video = document.querySelector("#reader video");
+  const video = elements.previewVideo;
   activeTrack = video?.srcObject?.getVideoTracks?.()[0] || null;
 }
 

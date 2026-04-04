@@ -35,7 +35,9 @@
           <span class="status-pill" id="cameraState">Pasif</span>
         </div>
 
-        <div id="reader" class="reader-frame" aria-label="Kamera önizleme alanı"></div>
+        <div id="reader" class="reader-frame" aria-label="Kamera önizleme alanı">
+          <video id="previewVideo" class="preview-video" muted playsinline autoplay></video>
+        </div>
 
         <div class="control-grid">
           <button id="startButton" class="primary-button" type="button">
@@ -77,6 +79,7 @@
     </main>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

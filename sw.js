@@ -1,4 +1,4 @@
-const CACHE_NAME = "qrreaderpro-v4";
+const CACHE_NAME = "qrreaderpro-v5";
 const APP_ASSETS = [
   "./",
   "./index.html",
