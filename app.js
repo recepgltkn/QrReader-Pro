@@ -1,14 +1,11 @@
 const elements = {
   startButton: document.getElementById("startButton"),
-  stopButton: document.getElementById("stopButton"),
+  startButtonLabel: document.getElementById("startButtonLabel"),
   scanFileButton: document.getElementById("scanFileButton"),
   torchButton: document.getElementById("torchButton"),
-  copyButton: document.getElementById("copyButton"),
+  torchButtonLabel: document.getElementById("torchButtonLabel"),
   clearHistoryButton: document.getElementById("clearHistoryButton"),
   fileInput: document.getElementById("fileInput"),
-  resultText: document.getElementById("resultText"),
-  formatText: document.getElementById("formatText"),
-  sourceText: document.getElementById("sourceText"),
   statusText: document.getElementById("statusText"),
   cameraState: document.getElementById("cameraState"),
   historyList: document.getElementById("historyList"),
@@ -47,11 +44,10 @@ let popupElements = null;
 
 renderHistory();
 ensurePopupElements();
+setCameraButtonState(false);
 
 elements.startButton.addEventListener("click", startScanner);
-elements.stopButton.addEventListener("click", stopScanner);
 elements.scanFileButton.addEventListener("click", () => elements.fileInput.click());
-elements.copyButton.addEventListener("click", copyResult);
 elements.clearHistoryButton.addEventListener("click", clearHistory);
 elements.fileInput.addEventListener("change", scanSelectedFile);
 elements.torchButton.addEventListener("click", toggleTorch);
@@ -61,6 +57,11 @@ registerServiceWorker();
 installMobileGuards();
 
 async function startScanner() {
+  if (isRunning) {
+    await stopScanner();
+    return;
+  }
+
   if (!window.Html5Qrcode) {
     updateStatus("Tarayıcı kütüphanesi yüklenemedi.", false);
     return;
@@ -103,15 +104,14 @@ async function startScanner() {
 
     isRunning = true;
     bindActiveTrack();
-    elements.stopButton.disabled = false;
     elements.torchButton.disabled = !canToggleTorch();
+    setCameraButtonState(true);
     updateStatus("Kamera aktif. Barkodu yatay alana yaklaştırın.", true);
   } catch (error) {
     console.error(error);
     updateStatus(getReadableError(error), false);
-    elements.startButton.disabled = false;
-    elements.stopButton.disabled = true;
     elements.torchButton.disabled = true;
+    setCameraButtonState(false);
   }
 }
 
@@ -129,10 +129,9 @@ async function stopScanner() {
     isRunning = false;
     activeTrack = null;
     torchEnabled = false;
-    elements.startButton.disabled = false;
-    elements.stopButton.disabled = true;
     elements.torchButton.disabled = true;
-    elements.torchButton.textContent = "Flaş";
+    elements.torchButtonLabel.textContent = "Flaş";
+    setCameraButtonState(false);
     updateStatus("Kamera durduruldu.", false);
   }
 }
@@ -197,20 +196,6 @@ async function scanSelectedFile(event) {
   }
 }
 
-async function copyResult() {
-  if (!currentText) {
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(currentText);
-    updateStatus("Sonuç panoya kopyalandı.", true);
-  } catch (error) {
-    console.error(error);
-    updateStatus("Panoya kopyalama başarısız oldu.", false);
-  }
-}
-
 async function toggleTorch() {
   if (!activeTrack) {
     return;
@@ -221,21 +206,16 @@ async function toggleTorch() {
     await activeTrack.applyConstraints({
       advanced: [{ torch: torchEnabled }],
     });
-    elements.torchButton.textContent = torchEnabled ? "Flaş Kapat" : "Flaş";
+    elements.torchButtonLabel.textContent = torchEnabled ? "Flaş Kapat" : "Flaş";
   } catch (error) {
     console.error(error);
     torchEnabled = false;
-    elements.torchButton.textContent = "Flaş";
+    elements.torchButtonLabel.textContent = "Flaş";
     updateStatus("Bu cihazda flaş kontrolü desteklenmiyor.", false);
   }
 }
 
 function setResult({ text, format, source, scannedAt }) {
-  elements.resultText.textContent = text;
-  elements.formatText.textContent = format || "-";
-  elements.sourceText.textContent = source || "-";
-  elements.copyButton.disabled = false;
-
   const item = {
     text,
     format: format || "-",
@@ -280,6 +260,17 @@ function updateStatus(message, active) {
   elements.statusText.textContent = message;
   elements.cameraState.textContent = active ? "Aktif" : "Pasif";
   elements.cameraState.classList.toggle("active", active);
+}
+
+function setCameraButtonState(active) {
+  elements.startButton.disabled = false;
+  elements.startButton.classList.toggle("danger-button", active);
+  elements.startButton.classList.toggle("primary-button", !active);
+  elements.startButtonLabel.textContent = active ? "Kapat" : "Kamerayı Aç";
+  const icon = elements.startButton.querySelector(".button-icon");
+  if (icon) {
+    icon.textContent = active ? "⏹️" : "📷";
+  }
 }
 
 function readHistory() {

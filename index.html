@@ -38,95 +38,44 @@
         <div id="reader" class="reader-frame" aria-label="Kamera önizleme alanı"></div>
 
         <div class="control-grid">
-          <button id="startButton" class="primary-button" type="button">Kamerayı Aç</button>
-          <button id="stopButton" class="secondary-button" type="button" disabled>Kapat</button>
-          <button id="scanFileButton" class="ghost-button" type="button">Resimden Tara</button>
-          <button id="torchButton" class="ghost-button" type="button" disabled>Flaş</button>
+          <button id="startButton" class="primary-button" type="button">
+            <span class="button-icon" aria-hidden="true">📷</span>
+            <span id="startButtonLabel">Kamerayı Aç</span>
+          </button>
+          <button id="scanFileButton" class="ghost-button" type="button">
+            <span class="button-icon" aria-hidden="true">🖼️</span>
+            <span>Resimden Tara</span>
+          </button>
+          <button id="torchButton" class="ghost-button" type="button" disabled>
+            <span class="button-icon" aria-hidden="true">🔦</span>
+            <span id="torchButtonLabel">Flaş</span>
+          </button>
         </div>
 
         <input id="fileInput" type="file" accept="image/*" hidden>
       </section>
 
-      <section class="result-card">
-        <div class="section-title">
-          <h2>Sonuç</h2>
-          <button id="copyButton" class="inline-button" type="button" disabled>Kopyala</button>
-        </div>
-        <div class="result-grid">
-          <div class="result-box">
-            <span class="label">İçerik</span>
-            <p id="resultText" class="result-text">Henüz bir barkod okunmadı.</p>
-          </div>
-          <div class="meta-grid">
-            <div class="meta-box">
-              <span class="label">Format</span>
-              <p id="formatText">-</p>
-            </div>
-            <div class="meta-box">
-              <span class="label">Kaynak</span>
-              <p id="sourceText">-</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section class="history-card">
-        <div class="section-title">
-          <h2>Geçmiş</h2>
-          <button id="clearHistoryButton" class="inline-button" type="button">Temizle</button>
-        </div>
-        <ul id="historyList" class="history-list">
-          <li class="history-empty">Henüz tarama yapılmadı.</li>
-        </ul>
+        <details class="history-accordion">
+          <summary class="history-summary">
+            <span class="history-summary-title">
+              <span class="button-icon" aria-hidden="true">🕘</span>
+              <span>Geçmiş</span>
+            </span>
+            <span class="history-chevron" aria-hidden="true">⌄</span>
+          </summary>
+          <div class="history-content">
+            <div class="section-title history-tools">
+              <h2>Son Okumalar</h2>
+              <button id="clearHistoryButton" class="inline-button" type="button">Temizle</button>
+            </div>
+            <ul id="historyList" class="history-list">
+              <li class="history-empty">Henüz tarama yapılmadı.</li>
+            </ul>
+          </div>
+        </details>
       </section>
     </main>
-
-    <div id="resultModal" class="modal" hidden aria-hidden="true">
-      <div id="modalBackdrop" class="modal-backdrop"></div>
-      <section
-        class="modal-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modalTitle"
-      >
-        <div class="section-title modal-header">
-          <div>
-            <span class="label">Tarama tamamlandı</span>
-            <h2 id="modalTitle">Barkod Detayı</h2>
-          </div>
-          <button id="closeModalButton" class="inline-button" type="button">Kapat</button>
-        </div>
-
-        <div class="result-grid modal-content">
-          <div class="result-box">
-            <span class="label">İçerik</span>
-            <p id="modalResultText" class="result-text"></p>
-          </div>
-          <div class="meta-grid">
-            <div class="meta-box">
-              <span class="label">Format</span>
-              <p id="modalFormatText">-</p>
-            </div>
-            <div class="meta-box">
-              <span class="label">Kaynak</span>
-              <p id="modalSourceText">-</p>
-            </div>
-            <div class="meta-box">
-              <span class="label">Okunma Zamanı</span>
-              <p id="modalTimeText">-</p>
-            </div>
-            <div class="meta-box">
-              <span class="label">Uzunluk</span>
-              <p id="modalLengthText">-</p>
-            </div>
-          </div>
-          <div class="result-box">
-            <span class="label">Çözümlenen Bilgiler</span>
-            <div id="decodedFields" class="decoded-list"></div>
-          </div>
-        </div>
-      </section>
-    </div>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="./app.js"></script>
