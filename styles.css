@@ -203,6 +203,8 @@ button:disabled {
   justify-content: center;
   margin-right: 10px;
   font-size: 1.05rem;
+  font-weight: 700;
+  min-width: 18px;
 }
 
 .result-grid,

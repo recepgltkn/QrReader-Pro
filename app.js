@@ -82,13 +82,10 @@ async function startScanner() {
     scanner = new Html5Qrcode("reader", {
       formatsToSupport: fastFormats,
       verbose: false,
-      experimentalFeatures: {
-        useBarCodeDetectorIfSupported: true,
-      },
     });
 
     await scanner.start(
-      currentCameraId,
+      { deviceId: { exact: currentCameraId } },
       {
         fps: 12,
         qrbox: createScanBox,
@@ -98,6 +95,7 @@ async function startScanner() {
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
+        disableFlip: false,
       },
       onScanSuccess,
       () => {}
@@ -112,6 +110,7 @@ async function startScanner() {
     console.error(error);
     updateStatus(getReadableError(error), false);
     elements.torchButton.disabled = true;
+    scanner = null;
     setCameraButtonState(false);
   }
 }
@@ -272,7 +271,7 @@ function setCameraButtonState(active) {
   elements.startButtonLabel.textContent = active ? "Kapat" : "Kamerayı Aç";
   const icon = elements.startButton.querySelector(".button-icon");
   if (icon) {
-    icon.textContent = active ? "⏹️" : "📷";
+    icon.textContent = active ? "X" : "|";
   }
 }
 
@@ -323,7 +322,15 @@ function getReadableError(error) {
     return "Kamera için HTTPS veya localhost gerekir.";
   }
 
-  return "Kamera başlatılamadı. Başka bir uygulama kamerayı kullanıyor olabilir.";
+  if (/notfound|device|camera/i.test(message)) {
+    return "Kamera bulunamadı veya seçilemedi.";
+  }
+
+  if (/notreadable|track|start/i.test(message)) {
+    return "Kamera açılamadı. Başka uygulama kamerayı kullanıyor olabilir.";
+  }
+
+  return `Kamera başlatılamadı: ${message || "bilinmeyen hata"}`;
 }
 
 function escapeHtml(value) {
