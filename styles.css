@@ -69,7 +69,8 @@ body::before {
 
 .label,
 #statusText,
-.history-meta {
+.history-meta,
+.build-tag {
   color: var(--muted);
 }
 
@@ -92,6 +93,11 @@ p {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 16px;
+}
+
+.build-tag {
+  margin-top: 6px;
+  font-size: 0.82rem;
 }
 
 .status-pill {

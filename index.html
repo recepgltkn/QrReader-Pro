@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-title" content="Barkod Okuyucu">
     <meta name="application-name" content="Barkod Okuyucu">
     <title>Barkod Okuyucu</title>
-    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="manifest" href="./manifest.webmanifest?v=20260404b">
     <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
     <link rel="apple-touch-icon" href="./icons/icon-192.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,7 +22,7 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap"
       rel="stylesheet"
     >
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles.css?v=20260404b">
   </head>
   <body>
     <main class="app-shell">
@@ -31,6 +31,7 @@
           <div>
             <h2>Canlı Tarama</h2>
             <p id="statusText">Kamera başlatılmadı.</p>
+            <p class="build-tag">Sürüm 20260404b</p>
           </div>
           <span class="status-pill" id="cameraState">Pasif</span>
         </div>
@@ -80,6 +81,6 @@
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260404b"></script>
   </body>
 </html>
