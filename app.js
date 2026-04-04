@@ -12,15 +12,6 @@ const elements = {
   statusText: document.getElementById("statusText"),
   cameraState: document.getElementById("cameraState"),
   historyList: document.getElementById("historyList"),
-  resultModal: document.getElementById("resultModal"),
-  modalBackdrop: document.getElementById("modalBackdrop"),
-  closeModalButton: document.getElementById("closeModalButton"),
-  modalResultText: document.getElementById("modalResultText"),
-  modalFormatText: document.getElementById("modalFormatText"),
-  modalSourceText: document.getElementById("modalSourceText"),
-  modalTimeText: document.getElementById("modalTimeText"),
-  modalLengthText: document.getElementById("modalLengthText"),
-  decodedFields: document.getElementById("decodedFields"),
 };
 
 const historyKey = "qrreaderpro-history";
@@ -52,8 +43,10 @@ let audioContext = null;
 let lastBeepAt = 0;
 let lastScanAt = 0;
 let resumeTimeout = null;
+let popupElements = null;
 
 renderHistory();
+ensurePopupElements();
 
 elements.startButton.addEventListener("click", startScanner);
 elements.stopButton.addEventListener("click", stopScanner);
@@ -62,8 +55,6 @@ elements.copyButton.addEventListener("click", copyResult);
 elements.clearHistoryButton.addEventListener("click", clearHistory);
 elements.fileInput.addEventListener("change", scanSelectedFile);
 elements.torchButton.addEventListener("click", toggleTorch);
-elements.closeModalButton?.addEventListener("click", closeResultModal);
-elements.modalBackdrop?.addEventListener("click", closeResultModal);
 document.addEventListener("keydown", handleGlobalKeydown);
 
 registerServiceWorker();
@@ -97,17 +88,14 @@ async function startScanner() {
     await scanner.start(
       { deviceId: { exact: currentCameraId } },
       {
-        fps: 30,
-        qrbox: createScanBox,
+        fps: 20,
         rememberLastUsedCamera: true,
         videoConstraints: {
           facingMode: "environment",
-          width: { ideal: 960, max: 1280 },
-          height: { ideal: 540, max: 720 },
-          focusMode: "continuous",
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
         },
         disableFlip: true,
-        aspectRatio: 1.777778,
       },
       onScanSuccess,
       () => {}
@@ -310,9 +298,11 @@ function pickRearCamera(cameras) {
 }
 
 function createScanBox(viewfinderWidth, viewfinderHeight) {
-  const width = Math.floor(Math.min(viewfinderWidth * 0.88, 480));
-  const height = Math.floor(Math.max(68, Math.min(viewfinderHeight * 0.22, 104)));
-  return { width, height };
+  const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72);
+  return {
+    width: Math.max(220, edge),
+    height: Math.max(220, edge),
+  };
 }
 
 function normalizeFormat(format) {
@@ -442,18 +432,14 @@ function installMobileGuards() {
 }
 
 function openResultModal({ text, format, source, scannedAt }) {
-  if (!elements.resultModal) {
-    alert(`Barkod okundu:\n\n${text || "-"}`);
-    return;
-  }
-
+  ensurePopupElements();
   const decodedFields = buildDecodedFields(text, format);
-  elements.modalResultText.textContent = text || "-";
-  elements.modalFormatText.textContent = format || "-";
-  elements.modalSourceText.textContent = source || "-";
-  elements.modalTimeText.textContent = scannedAt || new Date().toLocaleString("tr-TR");
-  elements.modalLengthText.textContent = text ? `${text.length} karakter` : "-";
-  elements.decodedFields.innerHTML = decodedFields
+  popupElements.resultText.textContent = text || "-";
+  popupElements.formatText.textContent = format || "-";
+  popupElements.sourceText.textContent = source || "-";
+  popupElements.timeText.textContent = scannedAt || new Date().toLocaleString("tr-TR");
+  popupElements.lengthText.textContent = text ? `${text.length} karakter` : "-";
+  popupElements.decodedFields.innerHTML = decodedFields
     .map(
       (item) => `
         <article class="decoded-item">
@@ -464,25 +450,26 @@ function openResultModal({ text, format, source, scannedAt }) {
     )
     .join("");
 
-  elements.resultModal.hidden = false;
-  elements.resultModal.setAttribute("aria-hidden", "false");
+  popupElements.root.hidden = false;
+  popupElements.root.setAttribute("aria-hidden", "false");
   document.body.classList.add("modal-open");
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  popupElements.root.classList.add("is-visible");
 }
 
 function closeResultModal() {
-  if (!elements.resultModal) {
+  if (!popupElements?.root) {
     return;
   }
 
-  elements.resultModal.hidden = true;
-  elements.resultModal.setAttribute("aria-hidden", "true");
+  popupElements.root.hidden = true;
+  popupElements.root.setAttribute("aria-hidden", "true");
+  popupElements.root.classList.remove("is-visible");
   document.body.classList.remove("modal-open");
   scheduleLiveResume();
 }
 
 function handleGlobalKeydown(event) {
-  if (event.key === "Escape" && !elements.resultModal.hidden) {
+  if (event.key === "Escape" && popupElements?.root && !popupElements.root.hidden) {
     closeResultModal();
   }
 }
@@ -569,6 +556,78 @@ function detectValueType(value) {
   }
 
   return "Metin / alfanümerik kod";
+}
+
+function ensurePopupElements() {
+  if (popupElements?.root) {
+    return popupElements;
+  }
+
+  const root = document.createElement("div");
+  root.className = "js-popup";
+  root.hidden = true;
+  root.setAttribute("aria-hidden", "true");
+  root.innerHTML = `
+    <div class="js-popup-backdrop" data-close-popup="true"></div>
+    <section class="js-popup-panel" role="dialog" aria-modal="true" aria-labelledby="jsPopupTitle">
+      <button class="js-popup-close" id="jsPopupCloseButton" type="button" aria-label="Kapat">×</button>
+      <div class="js-popup-head">
+        <span class="label">Tarama tamamlandı</span>
+        <h2 id="jsPopupTitle">Barkod Detayı</h2>
+      </div>
+      <div class="result-grid modal-content">
+        <div class="result-box">
+          <span class="label">İçerik</span>
+          <p id="jsPopupResultText" class="result-text"></p>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-box">
+            <span class="label">Format</span>
+            <p id="jsPopupFormatText">-</p>
+          </div>
+          <div class="meta-box">
+            <span class="label">Kaynak</span>
+            <p id="jsPopupSourceText">-</p>
+          </div>
+          <div class="meta-box">
+            <span class="label">Okunma Zamanı</span>
+            <p id="jsPopupTimeText">-</p>
+          </div>
+          <div class="meta-box">
+            <span class="label">Uzunluk</span>
+            <p id="jsPopupLengthText">-</p>
+          </div>
+        </div>
+        <div class="result-box">
+          <span class="label">Çözümlenen Bilgiler</span>
+          <div id="jsPopupDecodedFields" class="decoded-list"></div>
+        </div>
+      </div>
+    </section>
+  `;
+
+  document.body.appendChild(root);
+
+  root.addEventListener("click", (event) => {
+    const target = event.target;
+    if (target instanceof HTMLElement && target.dataset.closePopup === "true") {
+      closeResultModal();
+    }
+  });
+
+  root.querySelector("#jsPopupCloseButton")?.addEventListener("click", closeResultModal);
+
+  popupElements = {
+    root,
+    resultText: root.querySelector("#jsPopupResultText"),
+    formatText: root.querySelector("#jsPopupFormatText"),
+    sourceText: root.querySelector("#jsPopupSourceText"),
+    timeText: root.querySelector("#jsPopupTimeText"),
+    lengthText: root.querySelector("#jsPopupLengthText"),
+    decodedFields: root.querySelector("#jsPopupDecodedFields"),
+  };
+
+  return popupElements;
 }
 
 window.addEventListener("beforeunload", () => {

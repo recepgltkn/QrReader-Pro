@@ -315,6 +315,60 @@ button:disabled {
   word-break: break-word;
 }
 
+.js-popup[hidden] {
+  display: none;
+}
+
+.js-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+}
+
+.js-popup.is-visible {
+  display: block;
+}
+
+.js-popup-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(8px);
+}
+
+.js-popup-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(680px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 20px 18px 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(8, 17, 31, 0.98);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.js-popup-head {
+  padding-right: 56px;
+  margin-bottom: 16px;
+}
+
+.js-popup-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  min-height: 44px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
 @media (max-width: 640px) {
   .app-shell {
     width: min(100vw - 12px, 980px);
@@ -347,6 +401,12 @@ button:disabled {
   .modal-panel {
     width: min(100%, 680px);
     max-height: calc(100vh - 12px);
+  }
+
+  .js-popup-panel {
+    width: calc(100vw - 12px);
+    max-height: calc(100vh - 12px);
+    padding-top: 18px;
   }
 
   h2 {
