@@ -75,6 +75,7 @@ async function startScanner() {
 
   try {
     elements.startButton.disabled = true;
+    resetReaderSurface();
     updateStatus("Kamera hazırlanıyor...", false);
 
     const codeReader = new ZXingBrowser.BrowserMultiFormatReader();
@@ -132,6 +133,7 @@ async function stopScanner() {
     scannerControls = null;
     fallbackScanner = null;
     currentText = "";
+    resetReaderSurface();
     elements.torchButton.disabled = true;
     elements.torchButtonLabel.textContent = "Flaş";
     setCameraButtonState(false);
@@ -176,9 +178,16 @@ async function scanSelectedFile(event) {
     }
 
     updateStatus("Resim analiz ediliyor...", false);
-    const fileScanner = new Html5Qrcode("reader");
+    const tempReaderId = `file-reader-${Date.now()}`;
+    const tempReader = document.createElement("div");
+    tempReader.id = tempReaderId;
+    tempReader.hidden = true;
+    document.body.appendChild(tempReader);
+
+    const fileScanner = new Html5Qrcode(tempReaderId);
     const result = await fileScanner.scanFile(file, true);
     await fileScanner.clear();
+    tempReader.remove();
 
     currentText = result;
     playBeep();
@@ -195,6 +204,7 @@ async function scanSelectedFile(event) {
     console.error(error);
     updateStatus("Seçilen görselden barkod okunamadı.", false);
   } finally {
+    resetReaderSurface();
     elements.fileInput.value = "";
   }
 }
@@ -299,6 +309,20 @@ function normalizeFormat(format) {
 function bindActiveTrack() {
   const video = elements.previewVideo;
   activeTrack = video?.srcObject?.getVideoTracks?.()[0] || null;
+}
+
+function resetReaderSurface() {
+  const children = Array.from(elements.reader.children);
+  for (const child of children) {
+    if (child !== elements.previewVideo) {
+      child.remove();
+    }
+  }
+
+  if (elements.previewVideo) {
+    elements.previewVideo.hidden = false;
+    elements.previewVideo.style.display = "block";
+  }
 }
 
 function canToggleTorch() {
