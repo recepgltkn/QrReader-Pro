@@ -12,10 +12,34 @@ const elements = {
   statusText: document.getElementById("statusText"),
   cameraState: document.getElementById("cameraState"),
   historyList: document.getElementById("historyList"),
+  resultModal: document.getElementById("resultModal"),
+  modalBackdrop: document.getElementById("modalBackdrop"),
+  closeModalButton: document.getElementById("closeModalButton"),
+  modalResultText: document.getElementById("modalResultText"),
+  modalFormatText: document.getElementById("modalFormatText"),
+  modalSourceText: document.getElementById("modalSourceText"),
+  modalTimeText: document.getElementById("modalTimeText"),
+  modalLengthText: document.getElementById("modalLengthText"),
+  decodedFields: document.getElementById("decodedFields"),
 };
 
 const historyKey = "qrreaderpro-history";
 const scanHistory = readHistory();
+const fastFormats = [
+  Html5QrcodeSupportedFormats.CODE_128,
+  Html5QrcodeSupportedFormats.CODE_39,
+  Html5QrcodeSupportedFormats.CODE_93,
+  Html5QrcodeSupportedFormats.CODABAR,
+  Html5QrcodeSupportedFormats.ITF,
+  Html5QrcodeSupportedFormats.EAN_13,
+  Html5QrcodeSupportedFormats.EAN_8,
+  Html5QrcodeSupportedFormats.UPC_A,
+  Html5QrcodeSupportedFormats.UPC_E,
+  Html5QrcodeSupportedFormats.UPC_EAN_EXTENSION,
+  Html5QrcodeSupportedFormats.QR_CODE,
+  Html5QrcodeSupportedFormats.DATA_MATRIX,
+  Html5QrcodeSupportedFormats.PDF_417,
+];
 
 let scanner = null;
 let currentText = "";
@@ -26,6 +50,8 @@ let isRunning = false;
 let lastTouchEnd = 0;
 let audioContext = null;
 let lastBeepAt = 0;
+let lastScanAt = 0;
+let resumeTimeout = null;
 
 renderHistory();
 
@@ -36,6 +62,9 @@ elements.copyButton.addEventListener("click", copyResult);
 elements.clearHistoryButton.addEventListener("click", clearHistory);
 elements.fileInput.addEventListener("change", scanSelectedFile);
 elements.torchButton.addEventListener("click", toggleTorch);
+elements.closeModalButton.addEventListener("click", closeResultModal);
+elements.modalBackdrop.addEventListener("click", closeResultModal);
+document.addEventListener("keydown", handleGlobalKeydown);
 
 registerServiceWorker();
 installMobileGuards();
@@ -60,25 +89,7 @@ async function startScanner() {
 
     if (!scanner) {
       scanner = new Html5Qrcode("reader", {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.AZTEC,
-          Html5QrcodeSupportedFormats.CODABAR,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.CODE_93,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.DATA_MATRIX,
-          Html5QrcodeSupportedFormats.MAXICODE,
-          Html5QrcodeSupportedFormats.ITF,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.PDF_417,
-          Html5QrcodeSupportedFormats.RSS_14,
-          Html5QrcodeSupportedFormats.RSS_EXPANDED,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.UPC_EAN_EXTENSION,
-        ],
+        formatsToSupport: fastFormats,
         verbose: false,
       });
     }
@@ -86,14 +97,17 @@ async function startScanner() {
     await scanner.start(
       { deviceId: { exact: currentCameraId } },
       {
-        fps: 18,
+        fps: 30,
         qrbox: createScanBox,
         rememberLastUsedCamera: true,
         videoConstraints: {
           facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 960, max: 1280 },
+          height: { ideal: 540, max: 720 },
+          focusMode: "continuous",
         },
+        disableFlip: true,
+        aspectRatio: 1.777778,
       },
       onScanSuccess,
       () => {}
@@ -103,7 +117,7 @@ async function startScanner() {
     bindActiveTrack();
     elements.stopButton.disabled = false;
     elements.torchButton.disabled = !canToggleTorch();
-    updateStatus("Kamera aktif. Barkodu çerçeveye hizalayın.", true);
+    updateStatus("Kamera aktif. Barkodu yatay alana yaklaştırın.", true);
   } catch (error) {
     console.error(error);
     updateStatus(getReadableError(error), false);
@@ -136,17 +150,23 @@ async function stopScanner() {
 }
 
 function onScanSuccess(decodedText, decodedResult) {
-  if (decodedText === currentText) {
+  const now = Date.now();
+  if (decodedText === currentText && now - lastScanAt < 1500) {
     return;
   }
 
   currentText = decodedText;
+  lastScanAt = now;
   playBeep();
-  setResult({
+  const payload = {
     text: decodedText,
     format: normalizeFormat(decodedResult?.result?.format?.formatName),
     source: "Canlı kamera",
-  });
+    scannedAt: new Date().toLocaleString("tr-TR"),
+  };
+  setResult(payload);
+  openResultModal(payload);
+  pauseLivePreview();
 }
 
 async function scanSelectedFile(event) {
@@ -172,11 +192,14 @@ async function scanSelectedFile(event) {
 
     currentText = result;
     playBeep();
-    setResult({
+    const payload = {
       text: result,
       format: "Otomatik tespit",
       source: "Yüklenen görsel",
-    });
+      scannedAt: new Date().toLocaleString("tr-TR"),
+    };
+    setResult(payload);
+    openResultModal(payload);
     updateStatus("Görselden barkod okundu.", true);
   } catch (error) {
     console.error(error);
@@ -219,7 +242,7 @@ async function toggleTorch() {
   }
 }
 
-function setResult({ text, format, source }) {
+function setResult({ text, format, source, scannedAt }) {
   elements.resultText.textContent = text;
   elements.formatText.textContent = format || "-";
   elements.sourceText.textContent = source || "-";
@@ -229,7 +252,7 @@ function setResult({ text, format, source }) {
     text,
     format: format || "-",
     source: source || "-",
-    timestamp: new Date().toLocaleString("tr-TR"),
+    timestamp: scannedAt || new Date().toLocaleString("tr-TR"),
   };
 
   scanHistory.unshift(item);
@@ -287,8 +310,8 @@ function pickRearCamera(cameras) {
 }
 
 function createScanBox(viewfinderWidth, viewfinderHeight) {
-  const width = Math.floor(Math.min(viewfinderWidth * 0.9, 520));
-  const height = Math.floor(Math.max(90, Math.min(viewfinderHeight * 0.38, 160)));
+  const width = Math.floor(Math.min(viewfinderWidth * 0.88, 480));
+  const height = Math.floor(Math.max(68, Math.min(viewfinderHeight * 0.22, 104)));
   return { width, height };
 }
 
@@ -416,6 +439,124 @@ function installMobileGuards() {
     },
     { passive: false }
   );
+}
+
+function openResultModal({ text, format, source, scannedAt }) {
+  const decodedFields = buildDecodedFields(text, format);
+  elements.modalResultText.textContent = text || "-";
+  elements.modalFormatText.textContent = format || "-";
+  elements.modalSourceText.textContent = source || "-";
+  elements.modalTimeText.textContent = scannedAt || new Date().toLocaleString("tr-TR");
+  elements.modalLengthText.textContent = text ? `${text.length} karakter` : "-";
+  elements.decodedFields.innerHTML = decodedFields
+    .map(
+      (item) => `
+        <article class="decoded-item">
+          <strong>${escapeHtml(item.label)}</strong>
+          <span>${escapeHtml(item.value)}</span>
+        </article>
+      `
+    )
+    .join("");
+
+  elements.resultModal.hidden = false;
+  elements.resultModal.setAttribute("aria-hidden", "false");
+}
+
+function closeResultModal() {
+  elements.resultModal.hidden = true;
+  elements.resultModal.setAttribute("aria-hidden", "true");
+  scheduleLiveResume();
+}
+
+function handleGlobalKeydown(event) {
+  if (event.key === "Escape" && !elements.resultModal.hidden) {
+    closeResultModal();
+  }
+}
+
+function pauseLivePreview() {
+  clearTimeout(resumeTimeout);
+  if (!isRunning || !activeTrack) {
+    return;
+  }
+
+  try {
+    activeTrack.enabled = false;
+    updateStatus("Barkod okundu. Detay penceresi açık.", true);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function scheduleLiveResume() {
+  clearTimeout(resumeTimeout);
+  if (!isRunning || !activeTrack) {
+    return;
+  }
+
+  resumeTimeout = window.setTimeout(() => {
+    try {
+      activeTrack.enabled = true;
+      updateStatus("Kamera aktif. Yeni barkod için hazır.", true);
+    } catch (error) {
+      console.error(error);
+    }
+  }, 120);
+}
+
+function buildDecodedFields(text, format) {
+  const value = String(text || "").trim();
+  const items = [
+    { label: "Ham veri", value: value || "-" },
+    { label: "Veri tipi", value: detectValueType(value) },
+  ];
+
+  if (/^\d+$/.test(value)) {
+    items.push({ label: "Sadece rakam", value: "Evet" });
+  }
+
+  if (/^[A-Z0-9-]+$/i.test(value)) {
+    items.push({ label: "Kod yapısı", value: "Alfanümerik seri / stok kodu olabilir" });
+  }
+
+  if (/\d{2}\/\d{2}\/\d{4}/.test(value)) {
+    items.push({ label: "Tarih bulundu", value: value.match(/\d{2}\/\d{2}\/\d{4}/)?.[0] || "-" });
+  }
+
+  if (format && /EAN|UPC/.test(format)) {
+    items.push({ label: "Ürün kodu yorumu", value: "Perakende ürün barkodu formatı" });
+  }
+
+  if (format && /CODE 128|CODE 39|CODE 93|ITF|CODABAR/.test(format)) {
+    items.push({ label: "Endüstriyel kullanım", value: "Stok, koli, raf veya tedarik etiketi olabilir" });
+  }
+
+  if (value.includes("http://") || value.includes("https://")) {
+    items.push({ label: "Bağlantı", value: value });
+  }
+
+  return items;
+}
+
+function detectValueType(value) {
+  if (!value) {
+    return "Bilinmiyor";
+  }
+
+  if (/^https?:\/\//i.test(value)) {
+    return "URL";
+  }
+
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+    return "E-posta";
+  }
+
+  if (/^\d+$/.test(value)) {
+    return "Sayısal barkod / seri";
+  }
+
+  return "Metin / alfanümerik kod";
 }
 
 window.addEventListener("beforeunload", () => {

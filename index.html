@@ -81,6 +81,53 @@
       </section>
     </main>
 
+    <div id="resultModal" class="modal" hidden aria-hidden="true">
+      <div id="modalBackdrop" class="modal-backdrop"></div>
+      <section
+        class="modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalTitle"
+      >
+        <div class="section-title modal-header">
+          <div>
+            <span class="label">Tarama tamamlandı</span>
+            <h2 id="modalTitle">Barkod Detayı</h2>
+          </div>
+          <button id="closeModalButton" class="inline-button" type="button">Kapat</button>
+        </div>
+
+        <div class="result-grid modal-content">
+          <div class="result-box">
+            <span class="label">İçerik</span>
+            <p id="modalResultText" class="result-text"></p>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-box">
+              <span class="label">Format</span>
+              <p id="modalFormatText">-</p>
+            </div>
+            <div class="meta-box">
+              <span class="label">Kaynak</span>
+              <p id="modalSourceText">-</p>
+            </div>
+            <div class="meta-box">
+              <span class="label">Okunma Zamanı</span>
+              <p id="modalTimeText">-</p>
+            </div>
+            <div class="meta-box">
+              <span class="label">Uzunluk</span>
+              <p id="modalLengthText">-</p>
+            </div>
+          </div>
+          <div class="result-box">
+            <span class="label">Çözümlenen Bilgiler</span>
+            <div id="decodedFields" class="decoded-list"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="./app.js"></script>
   </body>
